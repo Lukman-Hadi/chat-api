@@ -1,19 +1,18 @@
-const { QueryTypes, Op } = require('sequelize');
+const { QueryTypes, Op } = require('sequelize')
 
-const db = require('../models');
+const db = require('../models')
 
-const Conversation = db.conversations;
-const ConversationMember = db.conversationMember;
-const Message = db.messages;
+const Conversation = db.conversations
+const ConversationMember = db.conversationMember
+const Message = db.messages
 
-//TODO
-const senderId = 2;
 const sendMessage = async (req, res) => {
     if (!req.body.message) {
-        return res.status(422).send({ message: 'Message cannot be empty' });
+        return res.status(422).send({ message: 'Message cannot be empty' })
     }
     //TODO
-    let receiverId = req.body.to;
+    let receiverId = req.body.to
+    let senderId = req.userId
 
     let check = await db.sequelize.query(
         `SELECT c.*
@@ -29,10 +28,10 @@ const sendMessage = async (req, res) => {
             type: QueryTypes.SELECT,
             plain: true,
             model: Conversation,
-            logging: console.log
+            logging: console.log,
         }
-    );
-    let result = null;
+    )
+    let result = null
     if (check !== null) {
         try {
             result = await db.sequelize.transaction(async (trans) => {
@@ -41,20 +40,24 @@ const sendMessage = async (req, res) => {
                     sent_datetime: Date.now(),
                     read: 0,
                     user_id: senderId,
-                    conversation_id: check.id
+                    conversation_id: check.id,
                 }
                 await Message.create(messages, { transaction: trans })
-                return check;
+                return check
             })
-            await Message.update({ read: 1, read_datetime: Date.now() }, {
-                where: {
-                    conversation_id: check.id,
-                    user_id: { [Op.ne]: senderId }
+            await Message.update(
+                { read: 1, read_datetime: Date.now() },
+                {
+                    where: {
+                        conversation_id: check.id,
+                        user_id: { [Op.ne]: senderId },
+                    },
                 }
-            })
+            )
         } catch (err) {
             res.status(500).send({
-                message: err.message || 'Some Error Occur While Sending Message'
+                message:
+                    err.message || 'Some Error Occur While Sending Message',
             })
         }
     } else {
@@ -63,53 +66,67 @@ const sendMessage = async (req, res) => {
                 let conversationData = {
                     name: null,
                 }
-                const conversation = await Conversation.create(conversationData, { transaction: trans })
+                const conversation = await Conversation.create(
+                    conversationData,
+                    { transaction: trans }
+                )
                 let membersData = [
                     { user_id: senderId, conversation_id: conversation.id },
-                    { user_id: receiverId, conversation_id: conversation.id }
+                    { user_id: receiverId, conversation_id: conversation.id },
                 ]
-                await ConversationMember.bulkCreate(membersData, { transaction: trans })
+                await ConversationMember.bulkCreate(membersData, {
+                    transaction: trans,
+                })
                 let messages = {
                     text: req.body.message,
                     sent_datetime: Date.now(),
                     read: 0,
                     user_id: senderId,
-                    conversation_id: conversation.id
+                    conversation_id: conversation.id,
                 }
                 await Message.create(messages, { transaction: trans })
                 return conversation
             })
         } catch (err) {
             res.status(500).send({
-                message: err.message || 'Some Error Occur While Sending Message'
+                message:
+                    err.message || 'Some Error Occur While Sending Message',
             })
         }
-
     }
-    res.status(201).send({ message: 'message sent', conversationId: result.id });
+    res.status(201).send({ message: 'message sent', conversationId: result.id })
 }
 
 const getConversationMessages = async (req, res) => {
+    let senderId = req.userId
     if (!req.body.conversationId) {
-        return res.status(422).send({ message: 'ConversationId cannot be empty' });
+        return res
+            .status(422)
+            .send({ message: 'ConversationId cannot be empty' })
     }
     try {
-        let messages = await Message.findAll({ where: { conversation_id: req.body.conversationId } });
-        await Message.update({ read: 1, read_datetime: Date.now() }, {
-            where: {
-                conversation_id: req.body.conversationId,
-                user_id: { [Op.ne]: senderId }
-            }
+        let messages = await Message.findAll({
+            where: { conversation_id: req.body.conversationId },
         })
-        res.status(200).send(messages);
+        await Message.update(
+            { read: 1, read_datetime: Date.now() },
+            {
+                where: {
+                    conversation_id: req.body.conversationId,
+                    user_id: { [Op.ne]: senderId },
+                },
+            }
+        )
+        res.status(200).send(messages)
     } catch (err) {
         res.status(500).send({
-            message: err.message || 'Some Error Occur While Fetching Message'
+            message: err.message || 'Some Error Occur While Fetching Message',
         })
     }
 }
 
 const getConversations = async (req, res) => {
+    let senderId = req.userId
     try {
         let result = await db.sequelize.query(
             `SELECT
@@ -157,13 +174,13 @@ const getConversations = async (req, res) => {
             {
                 replacements: { senderId },
                 type: QueryTypes.SELECT,
-                logging: console.log
+                logging: console.log,
             }
         )
-        res.status(200).send({message:'Success fetch data',data:result});
+        res.status(200).send({ message: 'Success fetch data', data: result })
     } catch (err) {
         res.status(500).send({
-            message: err.message || 'Some Error Occur While Sending Message'
+            message: err.message || 'Some Error Occur While Sending Message',
         })
     }
 }
@@ -171,5 +188,5 @@ const getConversations = async (req, res) => {
 module.exports = {
     sendMessage,
     getConversationMessages,
-    getConversations
+    getConversations,
 }

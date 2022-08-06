@@ -18,7 +18,7 @@ module.exports = (sequelize, Datatype) => {
             },
             read_datetime: {
                 type: Datatype.DATE,
-                allowNull:true
+                allowNull: true,
             },
             user_id: {
                 type: Datatype.INTEGER,
